@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#152b48">
+  <title>CheckStock — складской учёт</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <script type="module" src="/static/app.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#balances"><span class="brand-mark" aria-hidden="true">C<span></span></span>CheckStock</a>
+      <p class="sidebar-caption">Управление складом</p>
+      <nav aria-label="Основная навигация">
+        <p class="nav-label">Рабочее пространство</p>
+        <button type="button" data-view="balances" aria-current="page"><span aria-hidden="true">▦</span>Остатки</button>
+        <button type="button" data-view="operations"><span aria-hidden="true">＋</span>Новая операция</button>
+        <button type="button" data-view="history"><span aria-hidden="true">↺</span>История операций</button>
+        <p class="nav-label catalog-nav-label">Справочники</p>
+        <button type="button" data-view="goods"><span aria-hidden="true">□</span>Товары</button>
+        <button type="button" data-view="warehouses"><span aria-hidden="true">⌂</span>Склады</button>
+      </nav>
+      <div class="sidebar-footer"><span class="footer-dot"></span><div>CheckStock<span>Складской учёт</span></div></div>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar"><span>Рабочее пространство <span class="breadcrumb-slash">/</span> <strong id="breadcrumb">Остатки</strong></span><span id="today-label" class="today-label"></span></header>
+      <main id="main-content">
+        <div class="page-heading">
+          <div><p class="eyebrow">СКЛАДСКОЙ УЧЁТ</p><h1 id="page-title" tabindex="-1">Текущие остатки</h1><p id="page-description" class="muted">Доступное количество товаров на каждом складе.</p></div>
+          <div class="heading-actions"><button type="button" id="refresh-button" class="button secondary">Обновить</button><button type="button" id="primary-action" class="button primary">＋ Новая операция</button></div>
+        </div>
+        <div id="notification" class="notice success" role="status" hidden></div>
+
+        <section id="view-balances" aria-label="Текущие остатки">
+          <div class="section-caption"><span class="section-dot"></span><strong>Остатки, резервы и товары в пути</strong><span class="muted">ФБО · FBS · Между складами</span></div>
+          <p id="balances-error" class="notice error" role="alert" hidden></p>
+          <div class="table-card" id="balances-table-card" aria-busy="false">
+            <div class="table-scroll"><table class="balances-table"><thead id="balances-head"></thead><tbody id="balances-body"></tbody></table></div>
+            <div id="balances-status" class="empty-state" role="status">Загрузка остатков…</div>
+            <div class="table-footer"><span id="balances-count" class="muted" aria-live="polite"></span></div>
+          </div>
+          <p class="footnote">Доступно = текущий остаток − резерв. В колонках «В пути» учитываются только товары, которые ещё не доехали.</p>
+        </section>
+
+        <section id="view-operations" aria-label="Создание операции" hidden>
+          <p id="operations-error" class="notice error" role="alert" hidden></p>
+          <p id="operations-status" class="notice neutral" role="status" hidden></p>
+          <form id="operation-form">
+            <fieldset id="operation-fields" disabled>
+              <div class="operation-layout">
+                <div class="operation-main">
+                  <section class="card form-card"><div class="card-heading"><span class="step-number">1</span><h2>Тип операции</h2></div>
+                    <div class="operation-types" role="group" aria-label="Тип операции">
+                      <label class="type-option"><input type="radio" name="operation_type" value="receipt" checked><span class="type-symbol receipt" aria-hidden="true">↙</span><strong>Приход</strong><small>Принять товар на склад</small></label>
+                      <label class="type-option"><input type="radio" name="operation_type" value="shipment"><span class="type-symbol shipment" aria-hidden="true">↗</span><strong>Отправка</strong><small>Клиенту (FBS) или на ФБО</small></label>
+                      <label class="type-option"><input type="radio" name="operation_type" value="transfer"><span class="type-symbol transfer" aria-hidden="true">⇄</span><strong>Перемещение</strong><small>Между двумя складами</small></label>
+                    </div>
+                    <label id="operation-fbo-field" class="checkbox-field fbo-field" hidden><input id="operation-fbo" type="checkbox"><span><strong>Отправка на ФБО</strong><small>Товар отправляется на склад маркетплейса</small></span></label>
+                  </section>
+                  <section class="card form-card"><div class="card-heading"><span class="step-number">2</span><h2>Склады</h2></div><div class="warehouse-fields">
+                    <div id="operation-source-field" class="field" hidden><label for="operation-source">Склад-источник</label><select id="operation-source"><option value="">Выберите склад</option></select></div>
+                    <div id="operation-target-field" class="field"><label for="operation-target">Склад-получатель</label><select id="operation-target" required><option value="">Выберите склад</option></select></div>
+                  </div></section>
+                  <section class="card form-card"><div class="card-heading between"><div class="inline-heading"><span class="step-number">3</span><h2>Товары</h2></div><span class="muted small-text">Количество в штуках</span></div>
+                    <div class="line-items-head" aria-hidden="true"><span>Товар / артикул</span><span>Количество</span><span></span></div>
+                    <div id="operation-items"></div>
+                    <button id="add-operation-item" type="button" class="button add-line">＋ Добавить товар</button>
+                  </section>
+                </div>
+                <aside class="card operation-summary"><p class="eyebrow">НОВАЯ ОПЕРАЦИЯ</p><h2 id="operation-summary-type">Приход</h2><div class="direction-summary"><span id="operation-summary-source">Поступление товара</span><span class="direction-arrow" aria-hidden="true">↓</span><strong id="operation-summary-target">Выберите склад</strong></div><dl class="summary-numbers"><div><dt>Товарных позиций</dt><dd id="operation-summary-count">0</dd></div><div><dt>Всего единиц</dt><dd id="operation-summary-quantity">0</dd></div></dl><p id="operation-effect" class="muted small-text">Количество товаров увеличится на выбранном складе.</p><button type="submit" id="operation-submit" class="button primary full-width">Провести операцию</button><span class="summary-note">Остатки обновятся после проведения</span></aside>
+              </div>
+            </fieldset>
+          </form>
+        </section>
+
+        <section id="view-history" aria-label="История операций" hidden>
+          <div class="filter-bar"><div class="filter-select"><label for="history-type">Тип операции</label><select id="history-type"><option value="">Все операции</option><option value="receipt">Приход</option><option value="shipment">Отправка</option><option value="shipment_fbo">Отправка на ФБО</option><option value="transfer">Перемещение</option></select></div><label class="checkbox-field"><input id="history-reversals" type="checkbox" checked><span>Показывать обратные операции</span></label></div>
+          <p id="history-error" class="notice error" role="alert" hidden></p>
+          <div class="table-card" id="history-table-card" aria-busy="false"><div class="table-scroll"><table class="history-table"><thead><tr><th scope="col">Операция</th><th scope="col">Дата и время, МСК</th><th scope="col">Откуда</th><th scope="col">Куда</th><th scope="col">Позиций</th><th scope="col">Статус</th><th scope="col">Действия</th></tr></thead><tbody id="history-body"></tbody></table></div><div id="history-status" class="empty-state" role="status"></div><div class="table-footer"><span id="history-count" class="muted" aria-live="polite"></span></div></div>
+        </section>
+
+        <section id="view-catalogs" aria-label="Справочник" hidden>
+          <p id="catalog-error" class="notice error" role="alert" hidden></p>
+          <div class="table-card" id="catalog-table-card" aria-busy="false"><div class="table-scroll"><table><thead id="catalog-head"></thead><tbody id="catalog-body"></tbody></table></div><div id="catalog-status" class="empty-state" role="status"></div><div class="table-footer"><span id="catalog-count" class="muted" aria-live="polite"></span></div></div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <dialog id="catalog-editor" aria-labelledby="catalog-editor-title"><form id="catalog-form"><h2 id="catalog-editor-title">Добавить товар</h2><p class="muted dialog-subtitle">Заполните данные справочника.</p><fieldset id="catalog-fields"><div id="catalog-sku-field" class="field"><label for="catalog-sku">Артикул</label><input id="catalog-sku" maxlength="64" autocomplete="off" required></div><div class="field"><label for="catalog-name">Наименование</label><input id="catalog-name" maxlength="255" autocomplete="off" required></div></fieldset><p id="catalog-form-error" class="notice error" role="alert" hidden></p><div class="dialog-actions"><button type="button" id="catalog-editor-close" class="button secondary">Отмена</button><button type="submit" id="catalog-save" class="button primary">Сохранить</button></div></form></dialog>
+
+  <dialog id="document-details" class="wide-dialog" aria-labelledby="document-details-title"><div class="dialog-heading"><div><p class="eyebrow">ИСТОРИЯ ОПЕРАЦИЙ</p><h2 id="document-details-title">Операция</h2></div><button type="button" id="document-details-close" class="button icon-button secondary" aria-label="Закрыть">×</button></div><p id="document-details-error" class="notice error" role="alert" hidden></p><div id="document-details-body"></div><div id="document-details-actions" class="dialog-actions"></div></dialog>
+
+  <dialog id="confirm-dialog" aria-labelledby="confirm-title"><form method="dialog"><h2 id="confirm-title"></h2><p id="confirm-description" class="muted"></p><div class="dialog-actions"><button value="cancel" class="button secondary" autofocus>Вернуться</button><button value="confirm" id="confirm-submit" class="button danger-solid">Подтвердить</button></div></form></dialog>
+  <dialog id="reserve-editor" aria-labelledby="reserve-title">
+    <form id="reserve-form">
+      <h2 id="reserve-title">Зарезервировать товар</h2>
+      <div class="reserve-product"><strong id="reserve-product-name"></strong><span id="reserve-product-sku" class="sku"></span></div>
+      <fieldset id="reserve-fields">
+        <div class="field"><label for="reserve-warehouse">Склад</label><select id="reserve-warehouse" required><option value="">Выберите склад</option></select></div>
+        <p id="reserve-available" class="muted small-text" aria-live="polite"></p>
+        <div class="field"><label for="reserve-quantity">Количество, шт.</label><input id="reserve-quantity" type="number" min="1" step="1" value="1" required></div>
+      </fieldset>
+      <p id="reserve-error" class="notice error" role="alert" hidden></p>
+      <div class="dialog-actions"><button type="button" id="reserve-close" class="button secondary">Отмена</button><button type="submit" id="reserve-submit" class="button primary">Зарезервировать</button></div>
+    </form>
+  </dialog>
+  <noscript><p class="notice error">Для работы CheckStock включите JavaScript.</p></noscript>
+</body>
+</html>

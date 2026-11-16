@@ -1,0 +1,14 @@
+[project]
+name = "checkstock"
+version = "0.1.0"
+description = "CheckStock — MVP ERP для учёта товаров и складов"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "alembic>=1.17,<2",
+    "fastapi>=0.119,<1",
+    "psycopg[binary]>=3.2.10,<4",
+    "pydantic-settings>=2.11,<3",
+    "sqlalchemy>=2.0.44,<3",
+    "uvicorn>=0.38,<1",
+]
